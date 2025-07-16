@@ -6,12 +6,14 @@ Sample bot that wraps OpenRouter API.
 
 from __future__ import annotations
 
+from email import message
 import os
 from typing import AsyncIterable
 
 import fastapi_poe as fp
 from modal import App, Image, asgi_app
 from openai import AsyncOpenAI
+import json
 
 # TODO: set your bot access key, openrouter api key, and bot name for this bot to work
 # see https://creator.poe.com/docs/quick-start#configuring-the-access-credentials
@@ -32,13 +34,25 @@ async def stream_chat_completion(request: fp.QueryRequest):
         elif query.role == "bot":
             messages.append({"role": "assistant", "content": query.content})
         elif query.role == "user":
-            messages.append({"role": "user", "content": query.content})
+            # query attachments
+            if query.attachments:
+                combindQuery = """请根据以下内容给出你的总结：
+                """
+                combindQuery += f"\n====================================="
+                for attachment in query.attachments:
+                    combindQuery += f"\n{attachment.parsed_content}"
+                combindQuery += f"\n====================================="
+                messages.append({"role": "user", "content": combindQuery})
+            else:
+                messages.append({"role": "user", "content": query.content})
         else:
             raise
 
     # print all messages
     print("==============================")
-    print("Messages for OpenRouter:\n", messages)
+    print(
+        "Messages for OpenRouter:\n", json.dumps(messages, indent=2, ensure_ascii=False)
+    )
     print("==============================")
 
     response = await client.chat.completions.create(
